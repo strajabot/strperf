@@ -55,7 +55,7 @@ domemcpybench(void **ptrs, char *dest, size_t n)
 }
 
 static void
-memcpybench(struct B *b, void *payload)
+memcpybench8(struct B *b, void *payload)
 {
 	struct testparam *param;
 	size_t n;
@@ -82,14 +82,89 @@ memcpybench(struct B *b, void *payload)
 	free(ptrs);
 }
 
+static void
+memcpybench4(struct B *b, void *payload)
+{
+	struct testparam *param;
+	size_t n;
+	long i;
+	void **ptrs;
+	char *dest;
+
+	param = payload;
+	b->bytes = param->buflen;
+	ptrs = genmemtests(param, &n);
+	dest = malloc(param->buflen + 4);
+	if (dest == NULL) {
+		perror("malloc");
+		exit(EXIT_FAILURE);
+	}
+
+	domemcpybench(ptrs, dest + 4, n);
+	resettimer(b);
+	for (i = 0; i < b->n; i++)
+		domemcpybench(ptrs, dest + 4, n);
+	stoptimer(b);
+
+	free(dest);
+	free(ptrs);
+}
+
+static void
+memcpybenchu(struct B *b, void *payload)
+{
+	struct testparam *param;
+	size_t n;
+	long i;
+	void **ptrs;
+	char *dest;
+
+	param = payload;
+	b->bytes = param->buflen;
+	ptrs = genmemtests(param, &n);
+	dest = malloc(param->buflen + n);
+	if (dest == NULL) {
+		perror("malloc");
+		exit(EXIT_FAILURE);
+	}
+
+	domemcpybench(ptrs, dest, n);
+
+	int *ualign = malloc(n);
+	for(i=0; i< b->n; i++) {	
+		int u = i % 6 + 1;
+		if(u == 4) u++;
+		ualign[i] = u;
+	}
+
+	resettimer(b);
+	for (i = 0; i < b->n; i++) {
+		domemcpybench(ptrs, dest + ualign[i], n);
+	}
+	stoptimer(b);
+
+	free(dest);
+	free(ptrs);
+}
+
 extern int
 main(void)
 {
 	preamble();
 
-	runbenchmark("64", memcpybench, (void *)&param64);
-	runbenchmark("4k", memcpybench, (void *)&param4k);
-	runbenchmark("256k", memcpybench, (void *)&param256k);
-	runbenchmark("16m", memcpybench, (void *)&param16m);
-	runbenchmark("1g", memcpybench, (void *)&param1g);
+	runbenchmark("64Align8", memcpybench8, (void *)&param64);
+	runbenchmark("4kAlign8", memcpybench8, (void *)&param4k);
+	runbenchmark("256kAlign8", memcpybench8, (void *)&param256k);
+	runbenchmark("16mAlign8", memcpybench8, (void *)&param16m);
+	//runbenchmark("1g", memcpybench8, (void *)&param1g);
+	runbenchmark("64Align4", memcpybench4, (void *)&param64);
+	runbenchmark("4kAlign4", memcpybench4, (void *)&param4k);
+	runbenchmark("256kAlign4", memcpybench4, (void *)&param256k);
+	runbenchmark("16mAlign4", memcpybench4, (void *)&param16m);
+	//runbenchmark("1g", memcpybench8, (void *)&param1g);
+	runbenchmark("64UAlign", memcpybenchu, (void *)&param64);
+	runbenchmark("4kUAlign", memcpybenchu, (void *)&param4k);
+	runbenchmark("256kUAlign", memcpybenchu, (void *)&param256k);
+	runbenchmark("16mUAlign", memcpybenchu, (void *)&param16m);
+	//runbenchmark("1g", memcpybench8, (void *)&param1g);
 }
